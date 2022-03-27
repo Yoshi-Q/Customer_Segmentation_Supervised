@@ -7,22 +7,111 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(tidyverse)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+# Import data
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+df = read.csv("bank-additional-full 2 (4) (2).csv", sep = ';')
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+## Data Cleaning for sanity checking
+
+
+
+```{r}
+df = df[df$age>=18,]
+mask = (df$poutcome == 'nonexistent') != (df$pdays==999)
+df['pdays'][mask,] = 10
+
+```
+
+
+## Data preprocessing for logistic regression 
+
+### subsetting: 
+
+exclude `duration`
+```{r}
+df = df[, 1:15]
+df = df[, -11]
+df
+```
+
+
+### bucketing
+```{r}
+# bucket pdays into categories: "contacted" and "not contacted"
+df = mutate(df, pdays_bucket=case_when(
+  df$pdays ==999 ~ 'not contacted',
+  df$pdays !=999 ~ 'contacted'
+))
+df
+```
+
+
+```{r}
+print(table(df$pdays_bucket)/length((df$pdays_bucket)))
+print(table(df$poutcome)/length((df$pdays)))
+print(table(df$previous)/length((df$pdays)))
+```
+
+Here, since `pdays`, `previous` and `poutcome` are highly correlated, since 86% of customers were not previously contacted. So I would choose one of the feature for the model. 
+**I decide to go with `poutcome`**
+
+### create dummy variables for `job`
+
+```{r}
+str(df)
+sum(df$education=='illiterate')
+```
+
+
+```{r}
+library(fastDummies)
+```
+
+```{r}
+df = dummy_cols(.data = df, select_columns = c('job'), remove_first_dummy = TRUE, remove_selected_columns = T)
+```
+
+
+
+### One thing to think about `education`
+
+Should I transform `education` to a numerical? In a social science perspective it is well acceptable, which is also indicated in the naming of the categories. 
+
+** this remains questionable, so I'll leave this variable out for the initial trial for analysis** 
+
+
+
+
+```{r}
+
+#create a new variable   `education_num` that is numeric
+df = mutate(df, education_num = case_when(df$education=='illiterate'~0,
+                                         df$education=='basic.4y'~4,
+                                         df$education=='basic.6y'~6,
+                                         df$education=='basic.9y'~9,
+                                         df$education=='high.school'~12,
+                                         df$education=='professional.course'~14,
+                                         df$education=='university.degree'~16,
+                                         df$education=='unknown'~NaN))
+```
+
+
+```{r}
+
+```
+
+
+
+
+
